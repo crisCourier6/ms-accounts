@@ -54,7 +54,7 @@ export class RoleController {
         if (!roles){
             return []
         }
-        return roles.map(({name})=>name)
+        return {roles: roles.map(({name})=>name)}
     }
 
     async create(newRole) {

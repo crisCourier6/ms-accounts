@@ -12,15 +12,6 @@ const bcrypt = require('bcrypt');
 const saltRounds = 10;
 const jwt = require("jsonwebtoken")
 
-
-type userAuth = {
-    id: string
-    name: string
-    email: string
-    roles: string[]
-    token: string
-}
-
 export class UserController {
 
     private userRepository = AppDataSource.getRepository(User)
@@ -132,12 +123,10 @@ export class UserController {
         let userToRemove = await this.userRepository.findOneBy({ id: id })
 
         if (!userToRemove) {
-            return "this user not exist"
+            return undefined
         }
 
-        await this.userRepository.remove(userToRemove)
-
-        return "user has been removed"
+        return this.userRepository.remove(userToRemove)
     }
 
     async activate(req: Request, res: Response){
@@ -187,13 +176,14 @@ export class UserController {
                     //     partitioned: true,
                     //     secure: true
                     // })
-                    const userFull : userAuth = {
+                    const userFull = {
+                        ...userRoles,
                         id: user.id,
                         name: user.name,
                         email: user.email,
-                        roles: userRoles,
                         token: token
                     } 
+                    user.lastLogin = new Date
                     return userFull
                 }
                 res.status(403)
