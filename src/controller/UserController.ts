@@ -27,20 +27,26 @@ export class UserController {
         const user = await this.userRepository.findOne({
             where: { id: id }
         })
-
+        console.log(user)
         if (!user) {
-            return "unregistered user"
+            console.log("no hay")
+            return []
         }
-        return user
+        const userFull = {
+            ...user,
+            createdAt: user.createdAt.toLocaleDateString("es-CL", { year: 'numeric', month: 'long', day: 'numeric' }),
+            lastLogin: user.lastLogin.toLocaleDateString("es-CL", { year: 'numeric', month: 'long', day: 'numeric' }),
+        }
+        return userFull
     }
 
     async oneByEmail(email: string){
-        const user = await this.userRepository.findOne({
+        const user = await this.userRepository.find({
             where: { email: email }
         })
-
-        if (!user){
-            return false
+        console.log(user)
+        if (user === undefined || user.length==0){
+            return undefined
         }
         return user
     }
@@ -106,6 +112,21 @@ export class UserController {
         }
         return undefined
         
+    }
+
+    async createGoogle(req: Request){
+        let {name, email, profilePic, isActive, typeExternal, externalId } = req.body
+        let now = new Date
+        const user = Object.assign(new User(), {
+            email: email,
+            name: name,
+            profilePic: profilePic,
+            isActive: isActive,
+            typeExternal: typeExternal,
+            externalId: externalId,
+            lastLogin: now
+        })
+        return this.userRepository.save(user)
     }
 
     async update(request: any) {
@@ -176,14 +197,15 @@ export class UserController {
                     //     partitioned: true,
                     //     secure: true
                     // })
+                    user.lastLogin = new Date
                     const userFull = {
                         ...userRoles,
-                        id: user.id,
-                        name: user.name,
-                        email: user.email,
+                        ...user,
+                        createdAt: user.createdAt.toLocaleDateString("es-CL", { year: 'numeric', month: 'long', day: 'numeric' }),
+                        lastLogin: user.lastLogin.toLocaleDateString("es-CL", { year: 'numeric', month: 'long', day: 'numeric' }),
                         token: token
                     } 
-                    user.lastLogin = new Date
+                    this.userRepository.save(user)
                     return userFull
                 }
                 res.status(403)
@@ -192,6 +214,32 @@ export class UserController {
             }
             res.status(401)
             return []
+        }
+        res.status(401)
+        return []
+    }
+    async authUserGoogle(req: Request, res: Response){
+        const user = await this.userRepository.findOneBy({email: req.body.email})
+        if (user){  
+            if (user.isActive){
+                const userHasRolesRows =  await this.userHasRoleController.activeByUser(user.id)
+                const userRoles = await this.roleController.getAllbyIds(userHasRolesRows)
+                const token = jwt.sign({name: user.name, email: user.email}, process.env.JWT_SECRET)
+                // res.cookie("token", token, {
+                //     httpOnly: false,
+                //     sameSite: "none",
+                //     partitioned: true,
+                //     secure: true
+                // })
+                user.lastLogin = new Date
+                const userFull = {
+                    ...userRoles,
+                    ...user,
+                    token: token
+                } 
+                this.userRepository.save(user)
+                return userFull
+            }    
         }
         res.status(401)
         return []

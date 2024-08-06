@@ -49,7 +49,6 @@ export class RoleController {
         userRolePairs.forEach(element => {
             ids.push(element.roleId)
         });
-        console.log(ids)
         const roles = await this.roleRepository.find({where: {id: In(ids)}})
         if (!roles){
             return []

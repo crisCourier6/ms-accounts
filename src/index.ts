@@ -23,7 +23,7 @@ AppDataSource.initialize().then(async () => {
             app.use(bodyParser.json())
             var cors = require('cors');
             const corsOptions = {
-                origin: 'http://192.168.100.6:4000',
+                origin: ['http://192.168.100.6:4000', 'http://localhost:4000'],
                 methods: ['POST', 'GET', 'PATCH', 'DELETE'],
                 allowedHeaders: ['content-type', 'Authorization', "Access-Control-Allow-Origin", "cookies", "set-cookies"]
             }

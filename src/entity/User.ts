@@ -15,7 +15,7 @@ export class User {
     @Column()
     name: string
 
-    @Column()
+    @Column({nullable: true})
     hash: string
 
     @Column({default: false})

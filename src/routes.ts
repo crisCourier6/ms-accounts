@@ -38,7 +38,13 @@ export const Routes = [
         route: "/auth/login",
         controller: MainController,
         action: "usersAuthLogIn"
-    },   
+    },  
+    {
+        method: "post",
+        route: "/auth/login/google",
+        controller: MainController,
+        action: "usersAuthLogInGoogle"
+    },  
     {
         method: "post",
         route: "/auth/signup",

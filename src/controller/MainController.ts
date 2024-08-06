@@ -23,6 +23,9 @@ export class MainController{
     }
     async usersOne(req: Request, res: Response, next: NextFunction, channel: Channel) {
         let user = await this.userController.one(req.params.id) as Object
+        if(!user){
+            return []
+        }
         let userRolesPairs = await this.userHasRoleController.byUser(req.params.id)
         let userRoles = await this.roleController.getAllbyIds(userRolesPairs) as Object
         let userFull = {
@@ -67,6 +70,19 @@ export class MainController{
     }
     async usersAuthLogIn(req: Request, res: Response, next: NextFunction, channel: Channel) {
         return this.userController.authUser(req, res)
+    }
+    async usersAuthLogInGoogle(req: Request, res: Response, next: NextFunction, channel: Channel) {
+        let user = await this.userController.oneByEmail(req.body.email) as Object
+        if(!user){
+            console.log("no existe")
+            user = await this.userController.createGoogle(req)
+            console.log(user)
+            let role = await this.roleController.oneByName(req.body.role)
+            console.log(role)
+            let roleToUser = await this.userHasRoleController.create(user, role)
+        }
+        
+        return this.userController.authUserGoogle(req, res)
     }
     async usersActivate(req: Request, res: Response, next: NextFunction, channel: Channel) {
         return this.userController.activate(req, res)
