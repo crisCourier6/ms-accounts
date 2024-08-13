@@ -34,8 +34,8 @@ export class UserController {
         }
         const userFull = {
             ...user,
-            createdAt: user.createdAt.toLocaleDateString("es-CL", { year: 'numeric', month: 'long', day: 'numeric' }),
-            lastLogin: user.lastLogin.toLocaleDateString("es-CL", { year: 'numeric', month: 'long', day: 'numeric' }),
+            createdAt: user.createdAt.toLocaleDateString("es-CL", ),
+            lastLogin: user.lastLogin.toLocaleDateString("es-CL", ),
         }
         return userFull
     }
@@ -78,10 +78,12 @@ export class UserController {
         });
     }
 
-    async create(req: Request) {
+    async create(req: Request, res: Response) {
         const { email, name, pass, profilePic } = req.body;
         const oldUser = await this.userRepository.findOneBy({email: email})
         if (oldUser){
+            console.log("usuario ya existe")
+            res.status(401)
             return undefined
         }
         const salt = await bcrypt.genSalt()
@@ -103,7 +105,13 @@ export class UserController {
         console.log(process.env.EF_MAIL, process.env.EF_PASS)
         if (createdUser){
             const activationMail = `
-                <h2>Siga el siguiente enlace para activar su cuenta de EyesFood (fecha de vencimiento: ${createdUser.activationExpire}):</h2> 
+                <h4>
+                    Siga el siguiente enlace para activar su cuenta de EyesFood
+                    (fecha de vencimiento: ${createdUser.activationExpire.toLocaleDateString("es-CL", { year: 'numeric', 
+                                                                                                        month: 'long', 
+                                                                                                        day: 'numeric',
+                                                                                                        hour: "numeric",minute: "numeric" })}):
+                </h4> 
                 <a href="http://192.168.100.6:4000/activate/${createdUser.id}/${createdUser.activationToken}">Activar cuenta</a>
             `
             await this.sendMail(createdUser.email, "Activar cuenta EyesFood", activationMail)
@@ -129,12 +137,26 @@ export class UserController {
         return this.userRepository.save(user)
     }
 
-    async update(request: any) {
-        const updatedUser = await this.userRepository.update(request.params.id, request.body)
+    async update(req: Request) {
+        if (req.body.pass){
+            const user = await this.userRepository.findOneBy({id: req.params.id})
+            const checkPass = await bcrypt.compare(req.body.oldPass, user.hash)
+            if (checkPass){
+                const salt = await bcrypt.genSalt()
+                const hashedPass = await bcrypt.hash(req.body.pass, salt)
+                req.body.hash = hashedPass
+                delete req.body.pass
+                delete req.body.oldPass
+            }
+            else {
+                return {error: "oldPass"}
+            }
+        }
+        const updatedUser = await this.userRepository.update(req.params.id, req.body)
         if (updatedUser){
             return updatedUser
         }
-        return "Error: couldn't update user"
+        return []
         
     }
 
@@ -184,7 +206,7 @@ export class UserController {
     async authUser(req: Request, res: Response){
         const { email, pass } = req.body
         const user = await this.userRepository.findOneBy({email: email})
-        if (user){
+        if (user.hash){
             const checkPass = await bcrypt.compare(pass, user.hash)
             if (checkPass){
                 if (user.isActive){

@@ -38,9 +38,9 @@ export class MainController{
         return this.userController.oneByEmail(req.body.email)
     }
     async usersCreate(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        const newUser = await this.userController.create(req)
+        const newUser = await this.userController.create(req ,res)
         if (!newUser){
-            return undefined
+            return []
         }
         
         const {userRole} = req.body
