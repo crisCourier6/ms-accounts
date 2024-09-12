@@ -9,7 +9,7 @@ import { Permission } from "./entity/Permission"
 import { RoleHasPermission } from "./entity/RoleHasPermission"
 import "dotenv/config"
 
-
+// configuración de la base de datos (ver documentación de typeorm)
 export const AppDataSource = new DataSource({
     type: "postgres",
     host: process.env.DB_HOST,

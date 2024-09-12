@@ -47,6 +47,12 @@ export const Routes = [
     },  
     {
         method: "post",
+        route: "/auth/login/tokens",
+        controller: MainController,
+        action: "getGoogleTokens"
+    }, 
+    {
+        method: "post",
         route: "/auth/signup",
         controller: MainController,
         action: "usersCreate"

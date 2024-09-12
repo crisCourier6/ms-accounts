@@ -24,6 +24,9 @@ export class User {
     @Column({default: false})
     isSuspended: boolean
 
+    @Column ({default: false, nullable: true})
+    isPending: boolean
+
     @Column({nullable: true})
     activationToken: string
 

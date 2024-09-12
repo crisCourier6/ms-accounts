@@ -10,6 +10,12 @@
       "outDir": "./build",
       "emitDecoratorMetadata": true,
       "experimentalDecorators": true,
-      "sourceMap": true
-   }
+      "sourceMap": true,
+      "types": ["jest"]   // Include Jest types if using Jest
+   },
+   "exclude": [
+    "node_modules",
+    "build",   // Exclude the output folder
+    "**/*.test.ts"  // Exclude test files from production build
+  ]
 }

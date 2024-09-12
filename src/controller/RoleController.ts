@@ -46,12 +46,15 @@ export class RoleController {
 
     async getAllbyIds(userRolePairs: any){
         const ids = []
+        if (!userRolePairs || userRolePairs.length===0){
+            return {roles: []}
+        }
         userRolePairs.forEach(element => {
             ids.push(element.roleId)
         });
         const roles = await this.roleRepository.find({where: {id: In(ids)}})
         if (!roles){
-            return []
+            return {}
         }
         return {roles: roles.map(({name})=>name)}
     }

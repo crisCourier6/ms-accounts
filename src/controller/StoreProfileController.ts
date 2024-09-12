@@ -22,6 +22,19 @@ export class StoreProfileController {
         return storeProfile
     }
 
+    async oneByUserId(id: string, res: Response) {
+  
+        const storeProfile = await this.storeProfileRepository.findOne({
+            where: { userId: id }
+        })
+
+        if (!storeProfile) {
+            res.status(404)
+            return {message:"Tienda no encontrada"}
+        }
+        return storeProfile
+    }
+
     async create(newStoreProfile: any, user?: any) {
         const { address, description, phone, webPage } = newStoreProfile;
        

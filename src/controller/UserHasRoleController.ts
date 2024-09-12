@@ -38,9 +38,8 @@ export class UserHasRoleController {
         const userRoles = await this.userHasRoleRepository.find({
             where: { userId: id }
         })
-        console.log(userRoles)
         if (userRoles === undefined || userRoles.length == 0){
-            return "user/role pair doesn't exist"
+            return []
         }
         return userRoles
     }
@@ -55,11 +54,11 @@ export class UserHasRoleController {
         return userRole
     }
 
-    async create(userId: any, roleId: any) {
+    async create(user: any, role: any) {
                 
         const userRole = Object.assign(new UserHasRole(), {
-            roleId: roleId,
-            userId: userId,
+            roleId: role.id,
+            userId: user.id,
         })
 
         await this.userHasRoleRepository.save(userRole)

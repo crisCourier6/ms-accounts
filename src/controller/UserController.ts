@@ -5,6 +5,7 @@ import { UserHasRoleController } from "./UserHasRoleController";
 import { RoleController } from "./RoleController";
 import { v4 as uuidv4, v6 as uuidv6 } from 'uuid';
 import "dotenv/config"
+import axios from "axios"
 
 const path = require("path")
 const nodeMailer = require("nodemailer")
@@ -22,31 +23,27 @@ export class UserController {
         return this.userRepository.find()
     }
 
-    async one(id: string) {
+    async one(id: string, res: Response) {
   
         const user = await this.userRepository.findOne({
             where: { id: id }
         })
-        console.log(user)
         if (!user) {
-            console.log("no hay")
-            return []
+            res.status(404)
+            return {message: "Error: Usuario no encontrado"}
         }
-        const userFull = {
-            ...user,
-            createdAt: user.createdAt.toLocaleDateString("es-CL", ),
-            lastLogin: user.lastLogin.toLocaleDateString("es-CL", ),
-        }
-        return userFull
+        return user
     }
 
-    async oneByEmail(email: string){
-        const user = await this.userRepository.find({
-            where: { email: email }
-        })
-        console.log(user)
-        if (user === undefined || user.length==0){
-            return undefined
+    async oneByEmail(email: string, res: Response){
+        if (!email){
+            res.status(400)
+            return {message: "Error: email inválido"}
+        }
+        const user = await this.userRepository.findOneBy({ email: email })
+        if (!user) {
+            res.status(404)
+            return {message: "Error: Usuario no encontrado"}
         }
         return user
     }
@@ -79,15 +76,35 @@ export class UserController {
     }
 
     async create(req: Request, res: Response) {
-        const { email, name, pass, profilePic } = req.body;
+        const { email, name, pass, profilePic, userRole } = req.body;
         const oldUser = await this.userRepository.findOneBy({email: email})
         if (oldUser){
             console.log("usuario ya existe")
             res.status(401)
-            return undefined
+            return {message: "Error: El usuario ya existe"}
         }
         const salt = await bcrypt.genSalt()
         const hashedPass = await bcrypt.hash(pass, salt)
+        if (userRole.includes("Expert") || userRole.includes("Store")){
+            const user = Object.assign(new User(), {
+                email: email,
+                name: name,
+                hash: hashedPass,
+                profilePic: profilePic,
+                isPending: true
+            })
+            return this.userRepository.save(user)
+        }
+        else if (userRole.includes("Tech")){
+            const user = Object.assign(new User(), {
+                email: email,
+                name: name,
+                hash: hashedPass,
+                profilePic: profilePic,
+                isActive: true
+            })
+            return this.userRepository.save(user)
+        }
         const activationToken = uuidv4()
         const activationExpire = new Date
         activationExpire.setMinutes(activationExpire.getMinutes() + 30) 
@@ -118,23 +135,45 @@ export class UserController {
 
             return createdUser
         }
-        return undefined
+        res.status(500)
+        return {message: "Error: No se pudo crear el usuario"}
         
     }
 
-    async createGoogle(req: Request){
-        let {name, email, profilePic, isActive, typeExternal, externalId } = req.body
+    async getGoogleData(accessToken: string, res: Response){
+        console.log(accessToken)
+        try {
+            const response = await axios.get(`https://www.googleapis.com/oauth2/v1/userinfo?access_token=${accessToken}`, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Accept: 'application/json',
+                },
+            });
+            return response.data;
+        } catch (error) {
+            console.log("Error: ", error);
+            res.status(404)
+            return null; // Return null or handle the error appropriately
+        }     
+    }
+
+    async createGoogleUser(data: any, res: Response){
         let now = new Date
         const user = Object.assign(new User(), {
-            email: email,
-            name: name,
-            profilePic: profilePic,
-            isActive: isActive,
-            typeExternal: typeExternal,
-            externalId: externalId,
+            email: data.email,
+            name: data.name,
+            profilePic:data.picture,
+            isActive: true,
+            typeExternal: "Google",
+            externalId: data.accessToken,
             lastLogin: now
         })
-        return this.userRepository.save(user)
+        let newUser = await this.userRepository.save(user)
+        data.userRole.map(async (roleName) => {
+            const role = await this.roleController.oneByName(roleName)
+            let roleToUser = await this.userHasRoleController.create(newUser, role)
+        })
+        return newUser
     }
 
     async update(req: Request) {
@@ -152,7 +191,8 @@ export class UserController {
                 return {error: "oldPass"}
             }
         }
-        const updatedUser = await this.userRepository.update(req.params.id, req.body)
+        let newUser = {...req.body, ["user"]: undefined}
+        const updatedUser = await this.userRepository.update(req.params.id, newUser)
         if (updatedUser){
             return updatedUser
         }
@@ -192,7 +232,7 @@ export class UserController {
                 return false
             }
             else{
-                await this.userRepository.update(id, {isActive: true})
+                await this.userRepository.update(id, {isActive: true, isPending: false})
                 console.log("usuario activado")
                 return true
             }
@@ -205,6 +245,11 @@ export class UserController {
 
     async authUser(req: Request, res: Response){
         const { email, pass } = req.body
+        const { v } = req.query
+        if (v !== undefined && typeof v !== 'string') {
+            res.status(400)
+            return { message: 'Parámetro inválido.' }
+        }
         const user = await this.userRepository.findOneBy({email: email})
         if (user.hash){
             const checkPass = await bcrypt.compare(pass, user.hash)
@@ -212,7 +257,12 @@ export class UserController {
                 if (user.isActive){
                     const userHasRolesRows =  await this.userHasRoleController.activeByUser(user.id)
                     const userRoles = await this.roleController.getAllbyIds(userHasRolesRows)
-                    const token = jwt.sign({name: user.name, email: user.email}, process.env.JWT_SECRET)
+                    if (v && !userRoles.roles.includes("Admin") && !userRoles.roles.includes("Tech")){
+                        res.status(401)
+                        return {message: "Usuario sin permiso para entrar."}    
+                    }
+                    
+                    const token = jwt.sign({name: user.name, email: user.email, id: user.id, roles: userRoles.roles}, process.env.JWT_SECRET)
                     // res.cookie("token", token, {
                     //     httpOnly: false,
                     //     sameSite: "none",
@@ -221,32 +271,41 @@ export class UserController {
                     // })
                     user.lastLogin = new Date
                     const userFull = {
-                        ...userRoles,
-                        ...user,
-                        createdAt: user.createdAt.toLocaleDateString("es-CL", { year: 'numeric', month: 'long', day: 'numeric' }),
-                        lastLogin: user.lastLogin.toLocaleDateString("es-CL", { year: 'numeric', month: 'long', day: 'numeric' }),
+                        id: user.id,
+                        name: user.name,
+                        email: user.email,
+                        roles: userRoles.roles,
+                        createdAt: user.createdAt,
+                        lastLogin: user.lastLogin,
                         token: token
                     } 
                     this.userRepository.save(user)
                     return userFull
                 }
                 res.status(403)
-                return []
+                return {message: "Cuenta inactiva."}
+                
                 
             }
             res.status(401)
-            return []
+            return {message: "Contraseña incorrecta."}
+            
         }
         res.status(401)
-        return []
+        return {message:"Usuario no encontrado"}
+        
     }
-    async authUserGoogle(req: Request, res: Response){
-        const user = await this.userRepository.findOneBy({email: req.body.email})
+    async authUserGoogle(email:string, accesstoken:string, res: Response){
+        if (!email){
+            res.status(400)
+            return {message: "Error: email inválido"}
+        }
+        const user = await this.userRepository.findOneBy({email: email})
         if (user){  
             if (user.isActive){
                 const userHasRolesRows =  await this.userHasRoleController.activeByUser(user.id)
                 const userRoles = await this.roleController.getAllbyIds(userHasRolesRows)
-                const token = jwt.sign({name: user.name, email: user.email}, process.env.JWT_SECRET)
+                const token = jwt.sign({name: user.name, email: user.email, id: user.id, roles: userRoles.roles}, process.env.JWT_SECRET)
                 // res.cookie("token", token, {
                 //     httpOnly: false,
                 //     sameSite: "none",
@@ -254,6 +313,7 @@ export class UserController {
                 //     secure: true
                 // })
                 user.lastLogin = new Date
+                user.externalId = accesstoken
                 const userFull = {
                     ...userRoles,
                     ...user,
@@ -263,8 +323,8 @@ export class UserController {
                 return userFull
             }    
         }
-        res.status(401)
-        return []
+        res.status(404)
+        return {message: "Error: Usuario no encontrado"}
     }
 
 }
