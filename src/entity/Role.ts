@@ -14,10 +14,10 @@ export class Role {
     @Column()
     description: string
 
-    @OneToMany(()=>UserHasRole, userHasRole=>userHasRole.roleId)
+    @OneToMany(()=>UserHasRole, userHasRole=>userHasRole.role)
     userHasRole: UserHasRole[]
 
-    @OneToMany(()=>RoleHasPermission, roleHasPermission=>roleHasPermission.roleId)
+    @OneToMany(()=>RoleHasPermission, roleHasPermission=>roleHasPermission.role)
     roleHasPermission: RoleHasPermission[]
 
 }

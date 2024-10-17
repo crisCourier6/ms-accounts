@@ -7,13 +7,29 @@ export class RoleController {
 
     private roleRepository = AppDataSource.getRepository(Role)
 
-    async all() {
-        return this.roleRepository.find()
+    async all(req:Request, res:Response) {
+        const withPermissions = req.query.wp === "true"
+        const withUsers = req.query.wu === "true"
+
+        const queryBuilder = this.roleRepository.createQueryBuilder("role")
+
+        // Apply filtering based on the flags
+        if (withPermissions) {
+            queryBuilder.leftJoinAndSelect("role.roleHasPermission", "roleHasPermission")
+                .leftJoinAndSelect("roleHasPermission.permission", "permission")
+        }
+        if (withUsers) {
+            queryBuilder.leftJoinAndSelect("role.userHasRole", "userHasRole")
+                .leftJoinAndSelect("userHasRole.user", "user")
+        }
+
+        return queryBuilder.getMany();
     }
 
     async one(id: string) {
         const role = await this.roleRepository.findOne({
-            where: { id: id }
+            where: { id: id },
+            relations: ["roleHasPermission", "roleHasPermission.permission"]
         })
 
         if (!role) {
@@ -73,25 +89,35 @@ export class RoleController {
         }
         return "Error: couldn't add new role"
     }
-    async update(request: any) {
-        const updatedRole = await this.roleRepository.update(request.params.id, request.body)
-        if (updatedRole){
-            return updatedRole
+    async update(request: Request, response: Response) {
+        const { id } = request.params
+        if (!id){
+            response.status(400)
+            return {message: "Error: id inválida"}
         }
-        return "Error: couldn't update role"
+        const updatedRole = await this.roleRepository.update(id, request.body)
+        if (updatedRole.affected == 1){
+            return this.roleRepository.findOne({where: {id:id}})
+        }
+        response.status(500)
+        return {message: "Error al modificar rol"}
         
     }
 
-    async remove(id: string) {
+    async remove(req: Request, res: Response) {
+        const {id} = req.params
+        if (!id){   
+            res.status(400)
+            return {message: "Error: Id inválida"}
+        }
         let roleToRemove = await this.roleRepository.findOneBy({ id: id })
 
         if (!roleToRemove) {
-            return "this role doesn't exist"
+            res.status(404)
+            return {message: "Error: Rol no existe"}
         }
 
-        await this.roleRepository.remove(roleToRemove)
-
-        return "role has been removed"
+        return this.roleRepository.remove(roleToRemove)
     }
 
 }

@@ -1,10 +1,14 @@
 import { AppDataSource } from "../data-source"
 import { NextFunction, Request, Response } from "express"
 import { RoleHasPermission } from "../entity/RoleHasPermission"
+import { Role } from "../entity/Role"
+import { Permission } from "../entity/Permission"
 
 export class RoleHasPermissionController {
 
     private roleHasPermissionRepository = AppDataSource.getRepository(RoleHasPermission)
+    private roleRepository = AppDataSource.getRepository(Role)
+    private permissionRepository = AppDataSource.getRepository(Permission)
 
     async all() {
         return this.roleHasPermissionRepository.find()
@@ -55,6 +59,48 @@ export class RoleHasPermissionController {
         await this.roleHasPermissionRepository.save(rolePermission)
         
         return "role/permission pair has been added"
+    }
+
+    async updateRolePermissions(req: Request, res: Response) {
+        const roleId = req.params.roleId;
+        const permissionsArray: Permission[] = req.body.roleHasPermissions; // This is the array you're sending
+        if (!roleId || !permissionsArray){
+            res.status(400)
+            return {message: "Error: parámetros inválidos"}
+        }
+        try {
+            // 1. Find the role by ID
+            const role = await this.roleRepository.findOne({
+                where: { id: roleId },
+                relations: ["roleHasPermission"], // Fetch existing permissions
+            });
+    
+            if (!role) {
+                res.status(404)
+                return {message: "Error: rol no existe"}
+            }
+    
+            // 2. Remove existing permissions
+            await this.roleHasPermissionRepository.delete({ roleId: role.id });
+    
+            // 3. Create and save new RoleHasPermission entries
+            const newPermissions = permissionsArray.map(permission => ({
+                roleId: role.id,
+                permissionId: permission.id,
+            }));
+    
+            await this.roleHasPermissionRepository.save(newPermissions);
+
+            return this.roleRepository.findOne({
+                where: { id: roleId },
+                relations: ["roleHasPermission", "roleHasPermission.permission"], // Include the permission details
+            });
+    
+        } catch (error) {
+            console.error("Error updating role permissions", error);
+            res.status(500)
+            return {message: "Error al guardar permisos"}
+        }
     }
 
     async removeByRole(id: string) {

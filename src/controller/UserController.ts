@@ -19,14 +19,58 @@ export class UserController {
     private roleController = new RoleController
     private userHasRoleController = new UserHasRoleController
 
-    async all() {
-        return this.userRepository.find()
+    async all(req:Request, res: Response) {
+        const stores = req.query.s === "true"
+        const experts = req.query.e === "true"
+        const withRoles = req.query.wr === "true"
+        const withStoreProfile = req.query.ws === "true"
+        const withExpertProfile = req.query.we === "true"
+        
+        const queryBuilder = this.userRepository.createQueryBuilder("user")
+
+        if (withStoreProfile) {
+            queryBuilder.leftJoinAndSelect("user.storeProfile", "storeProfile")
+        }  
+        if (withExpertProfile) {
+            queryBuilder.leftJoinAndSelect("user.expertProfile", "expertProfile");  
+        }
+
+        if (withRoles) {
+            queryBuilder.leftJoinAndSelect("user.userHasRole", "userHasRole") 
+            .leftJoinAndSelect("userHasRole.role", "role") 
+            .leftJoinAndSelect("role.roleHasPermission", "roleHasPermission")
+            .leftJoinAndSelect("roleHasPermission.permission", "permission")
+        }
+
+        if (stores && experts){
+            queryBuilder.leftJoinAndSelect("user.storeProfile", "storeProfile")
+                .leftJoinAndSelect("user.expertProfile", "expertProfile")
+                .where("storeProfile.id IS NOT NULL AND expertProfile.id IS NOT NULL");
+        }
+        else if (stores){
+            queryBuilder.leftJoinAndSelect("user.storeProfile", "storeProfile")
+                .where("storeProfile.id IS NOT NULL");
+        }
+        else if (experts){
+            queryBuilder.leftJoinAndSelect("user.expertProfile", "expertProfile")
+                .where("expertProfile.id IS NOT NULL");
+        }
+        // Apply filtering based on the flags
+        return queryBuilder.getMany();
     }
 
-    async one(id: string, res: Response) {
-  
+    async one(req:Request, res: Response) {
+        const {id} = req.params
         const user = await this.userRepository.findOne({
-            where: { id: id }
+            where: { id: id },
+            relations: [
+                "storeProfile", 
+                "expertProfile", 
+                "userHasRole", 
+                "userHasRole.role",
+                "userHasRole.role.roleHasPermission",
+                "userHasRole.role.roleHasPermission.permission",
+            ]
         })
         if (!user) {
             res.status(404)
@@ -40,7 +84,17 @@ export class UserController {
             res.status(400)
             return {message: "Error: email inválido"}
         }
-        const user = await this.userRepository.findOneBy({ email: email })
+        const user = await this.userRepository.findOne({
+            where: { email: email },
+            relations: [
+                "storeProfile", 
+                "expertProfile", 
+                "userHasRole", 
+                "userHasRole.role",
+                "userHasRole.role.roleHasPermission",
+                "userHasRole.role.roleHasPermission.permission",
+            ]
+        })
         if (!user) {
             res.status(404)
             return {message: "Error: Usuario no encontrado"}
@@ -121,19 +175,17 @@ export class UserController {
         const createdUser = await this.userRepository.save(user)
         console.log(process.env.EF_MAIL, process.env.EF_PASS)
         if (createdUser){
-            const activationMail = `
-                <h4>
-                    Siga el siguiente enlace para activar su cuenta de EyesFood
-                    (fecha de vencimiento: ${createdUser.activationExpire.toLocaleDateString("es-CL", { year: 'numeric', 
-                                                                                                        month: 'long', 
-                                                                                                        day: 'numeric',
-                                                                                                        hour: "numeric",minute: "numeric" })}):
-                </h4> 
-                <a href="http://192.168.100.6:4000/activate/${createdUser.id}/${createdUser.activationToken}">Activar cuenta</a>
-            `
-            await this.sendMail(createdUser.email, "Activar cuenta EyesFood", activationMail)
-
-            return createdUser
+            return this.userRepository.findOne({
+                where: { id: user.id },
+                relations: [
+                    "storeProfile", 
+                    "expertProfile", 
+                    "userHasRole", 
+                    "userHasRole.role",
+                    "userHasRole.role.roleHasPermission",
+                    "userHasRole.role.roleHasPermission.permission",
+                ]
+            })
         }
         res.status(500)
         return {message: "Error: No se pudo crear el usuario"}
@@ -176,9 +228,14 @@ export class UserController {
         return newUser
     }
 
-    async update(req: Request) {
+    async update(req: Request, res: Response) {
+        const {id} = req.params
+        if (!id){
+            res.status(400)
+            return {message: "Error: id inválida"}
+        }
         if (req.body.pass){
-            const user = await this.userRepository.findOneBy({id: req.params.id})
+            const user = await this.userRepository.findOneBy({id: id})
             const checkPass = await bcrypt.compare(req.body.oldPass, user.hash)
             if (checkPass){
                 const salt = await bcrypt.genSalt()
@@ -188,81 +245,136 @@ export class UserController {
                 delete req.body.oldPass
             }
             else {
-                return {error: "oldPass"}
+                res.status(400)
+                return {message: "Error: Contraseña inválida"}
             }
         }
-        let newUser = {...req.body, ["user"]: undefined}
-        const updatedUser = await this.userRepository.update(req.params.id, newUser)
-        if (updatedUser){
-            return updatedUser
+        let newUser = {...req.body}
+        const updatedUser = await this.userRepository.update(id, newUser)
+        if (updatedUser.affected === 1){
+            return this.userRepository.findOne({
+                where: {id: id},
+                relations: [
+                    "storeProfile", 
+                    "expertProfile", 
+                    "userHasRole", 
+                    "userHasRole.role",
+                    "userHasRole.role.roleHasPermission",
+                    "userHasRole.role.roleHasPermission.permission",
+                ]
+            })
         }
-        return []
+        res.status(500)
+        return {message: "Error al actualizar usuario"}
         
     }
 
     async remove(request: Request, response: Response, next: NextFunction) {
-        const id = request.params.id as string
+        const id = request.params.id
+
+        if(!id){
+            response.status(400)
+            return {message:"Error: id inválida"}
+        }
 
         let userToRemove = await this.userRepository.findOneBy({ id: id })
 
         if (!userToRemove) {
-            return undefined
+            response.status(404)
+            return {message: "Error: Usuario no existe"}
         }
-
         return this.userRepository.remove(userToRemove)
     }
 
     async activate(req: Request, res: Response){
         const { id, token } = req.params
         let user = await this.userRepository.findOneBy({ id: id })
+        if(!user){
+            res.status(404)
+            return {message: "Error: Usuario no existe"}
+        }
         if (user.isSuspended){
-            console.log("usuario suspendido")
             res.status(403)
-            return false
+            return {message: "Error: usuario suspendido"}
         }
         else if (user.isActive){
-            console.log("usuario ya está activo")
-            return true
+            res.status(400)
+            return {message: "Error: usuario ya está activo"}
         }
 
         else if (user.activationToken == token){
             let now = new Date()
             if (user.activationExpire<now){
-                console.log("enlace expiró")
-                return false
+                res.status(400)
+                return {message: "Error: enlace expiró"}
             }
             else{
-                await this.userRepository.update(id, {isActive: true, isPending: false})
-                console.log("usuario activado")
-                return true
+                const updatedUser = await this.userRepository.update(id, {isActive: true, isPending: false})
+                if(updatedUser.affected===1){
+                    return this.userRepository.findOne({where: {id}})
+                }
+                res.status(500)
+                return {message: "Error al actualizar usuario"}
             }
+
         }
         else{
-            console.log("token inválida")
-            return false
+            res.status(403)
+            return {message: "Error: Token inválida"}
         }
     }
 
     async authUser(req: Request, res: Response){
         const { email, pass } = req.body
-        const { v } = req.query
-        if (v !== undefined && typeof v !== 'string') {
+        const role= req.query.r
+        console.log(role)
+        if (!role) {
             res.status(400)
             return { message: 'Parámetro inválido.' }
         }
-        const user = await this.userRepository.findOneBy({email: email})
-        if (user.hash){
+        if (typeof role !== 'string') {
+            res.status(400)
+            return { message: 'Parámetro inválido.' }
+        }
+        const user = await this.userRepository.findOne({
+            where: { email: email },
+            relations: [
+                "storeProfile", 
+                "expertProfile", 
+                "userHasRole", 
+                "userHasRole.role",
+                "userHasRole.role.roleHasPermission",
+                "userHasRole.role.roleHasPermission.permission",
+            ]
+        })
+        if (!user){
+            res.status(404)
+            return {message: "Error: email no encontrado"}
+        }
+        const userRoles = user.userHasRole?.map((userRole: any) => userRole.role?.name).filter(Boolean)
+        console.log(userRoles)
+        if (!userRoles.includes(role)){
+            res.status(403)
+            return {message: "Error: Usuario no autorizado"}
+        }
+        
+        if (user && user.hash){
             const checkPass = await bcrypt.compare(pass, user.hash)
             if (checkPass){
                 if (user.isActive){
-                    const userHasRolesRows =  await this.userHasRoleController.activeByUser(user.id)
-                    const userRoles = await this.roleController.getAllbyIds(userHasRolesRows)
-                    if (v && !userRoles.roles.includes("Admin") && !userRoles.roles.includes("Tech")){
-                        res.status(401)
-                        return {message: "Usuario sin permiso para entrar."}    
+                    if (user.isSuspended){
+                        res.status(403)
+                        return {message: "Cuenta suspendida."}
                     }
                     
-                    const token = jwt.sign({name: user.name, email: user.email, id: user.id, roles: userRoles.roles}, process.env.JWT_SECRET)
+                    const token = jwt.sign(
+                        {
+                            name: user.name, 
+                            email: user.email, 
+                            id: user.id, 
+                            roles: user.userHasRole?.map((userRole: any) => userRole.role?.name).filter(Boolean).join(",")
+                        }, process.env.JWT_SECRET
+                    )
                     // res.cookie("token", token, {
                     //     httpOnly: false,
                     //     sameSite: "none",
@@ -270,17 +382,9 @@ export class UserController {
                     //     secure: true
                     // })
                     user.lastLogin = new Date
-                    const userFull = {
-                        id: user.id,
-                        name: user.name,
-                        email: user.email,
-                        roles: userRoles.roles,
-                        createdAt: user.createdAt,
-                        lastLogin: user.lastLogin,
-                        token: token
-                    } 
-                    this.userRepository.save(user)
-                    return userFull
+                    
+                    this.userRepository.update(user.id, {lastLogin: user.lastLogin})
+                    return {...user, token, lastLogin: user.lastLogin, roles: user.userHasRole?.map((userRole: any) => userRole.role?.name).filter(Boolean).join(",")}
                 }
                 res.status(403)
                 return {message: "Cuenta inactiva."}
@@ -300,12 +404,27 @@ export class UserController {
             res.status(400)
             return {message: "Error: email inválido"}
         }
-        const user = await this.userRepository.findOneBy({email: email})
+        const user = await this.userRepository.findOne({
+            where: { email: email },
+            relations: [
+                "storeProfile", 
+                "expertProfile", 
+                "userHasRole", 
+                "userHasRole.role",
+                "userHasRole.role.roleHasPermission",
+                "userHasRole.role.roleHasPermission.permission",
+            ]
+        })
         if (user){  
             if (user.isActive){
-                const userHasRolesRows =  await this.userHasRoleController.activeByUser(user.id)
-                const userRoles = await this.roleController.getAllbyIds(userHasRolesRows)
-                const token = jwt.sign({name: user.name, email: user.email, id: user.id, roles: userRoles.roles}, process.env.JWT_SECRET)
+                const token = jwt.sign(
+                    {
+                        name: user.name, 
+                        email: user.email, 
+                        id: user.id, 
+                        roles: user.userHasRole?.map((userRole: any) => userRole.role?.name).filter(Boolean).join(", ")
+                    }, process.env.JWT_SECRET
+                )
                 // res.cookie("token", token, {
                 //     httpOnly: false,
                 //     sameSite: "none",
@@ -313,18 +432,35 @@ export class UserController {
                 //     secure: true
                 // })
                 user.lastLogin = new Date
-                user.externalId = accesstoken
-                const userFull = {
-                    ...userRoles,
-                    ...user,
-                    token: token
-                } 
-                this.userRepository.save(user)
-                return userFull
+                this.userRepository.update(user.id, {lastLogin: user.lastLogin})
+                return {...user, token, lastLogin: user.lastLogin}
             }    
         }
         res.status(404)
         return {message: "Error: Usuario no encontrado"}
+    }
+
+    async getRoles(req: Request, res: Response){
+        const {id} = req.params
+        if (!id){
+            res.status(400)
+            return {message: "Error: id inválida"}
+        }
+        const user = await this.userRepository.findOne({
+            where: { id: id },
+            relations: [
+                "userHasRole", 
+                "userHasRole.role",
+                "userHasRole.role.roleHasPermission",
+                "userHasRole.role.roleHasPermission.permission",
+            ]
+        })
+        if (!user) {
+            res.status(404)
+            return {message: "Error: Usuario no encontrado"}
+        }
+        const roles = user.userHasRole.map(userRole => userRole.role.name);
+        return roles
     }
 
 }

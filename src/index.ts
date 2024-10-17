@@ -51,7 +51,7 @@ AppDataSource.initialize().then(async () => {
 
             app.listen(process.env.PORT)
 
-            console.log(`Express server has started on port ${process.env.PORT}. Open ${process.env.LOCAL_URL}:3000/users to see results`)
+            console.log(`Express server has started on port ${process.env.PORT}. Open ${process.env.LOCAL_URL}:${process.env.PORT}/users to see results`)
             process.on("beforeExit", ()=>{
                 console.log("closing")
                 connection.close()

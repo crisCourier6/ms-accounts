@@ -25,64 +25,18 @@ export class MainController{
 
     // usersAll() retorna todos los usuarios registrados
     async usersAll(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        
-        let decoded = req.body.user
-        if (!decoded){
-            res.status(400)
-            return {message: "Error: Usuario no autenticado"}
-        }
-        let users = await this.userController.all() as User[]
-        users = await Promise.all(users.map(async (user) => {
-            let expertProfile = undefined
-            let storeProfile = undefined
-            console.log(user)
-            let userRolesPairs = await this.userHasRoleController.byUser(user.id)
-            let userRoles = await this.roleController.getAllbyIds(userRolesPairs) as { roles: string[] }
-            if (userRoles.roles.includes("Admin") && !decoded.roles.includes("Admin")) {
-                return null
-            }
-            if (userRoles.roles.includes("Expert")){
-                await this.expertProfileController.oneByUserId(user.id, res)
-                .then(profile => {
-                    expertProfile = profile
-                })
-                .catch(error => {
-                    console.log(error)
-                })
-            }
-            if (userRoles.roles.includes("Store")){
-                await this.storeProfileController.oneByUserId(user.id, res)
-                .then(profile => {
-                    storeProfile = profile
-                })
-                .catch(error => {
-                    console.log(error)
-                })
-            }
-            return {
-                ...expertProfile,
-                ...storeProfile,
-                ...user,
-                roles: userRoles.roles.join(", ")
-            }
-        }))
+        let users = await this.userController.all(req, res) as User[]
         users = users.filter(user => user !== null)
-        console.log(users)
+        //cuando se quiera llenar tablas en otros microservicios
+        // users.forEach(user => {
+        //     const trimmedUser = {...user,}
+        //     channel.publish("Accounts", "user.create", Buffer.from(JSON.stringify(trimmedUser)))
+        // })
         return users
     }
     // usersOne() retorna el usuario con la id indicada en los parámetros de la uri
     async usersOne(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        let user = await this.userController.one(req.params.id, res) as Object
-        if(res.statusCode === 404){
-            return user
-        }
-        let userRolesPairs = await this.userHasRoleController.byUser(req.params.id)
-        let userRoles = await this.roleController.getAllbyIds(userRolesPairs) as { roles: string[] }
-        let userFull = {
-            ...user,
-            roles: userRoles.roles.join(", ")
-        }
-        return userFull
+        return this.userController.one(req, res) 
     }
     // usersOneByEmail() retorna el usuario con el email indicado en los parámetros de la uri
     async usersOneByEmail(req: Request, res: Response, next: NextFunction, channel: Channel){
@@ -90,7 +44,7 @@ export class MainController{
     }
     // usersCreate() crea un usuario nuevo con los datos provenientes en la request y lo retorna
     async usersCreate(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        const newUser = await this.userController.create(req ,res)
+        const newUser = await this.userController.create(req ,res) as User
         if (res.statusCode === 401 || res.statusCode === 500){
             return newUser
         }
@@ -112,12 +66,34 @@ export class MainController{
             const role = await this.roleController.oneByName(roleName)
             roleToUser = await this.userHasRoleController.create(newUser, role)
         })
-
-        return {...expertProfile, ...storeProfile, ...newUser, roles:userRole}
+        req.params.id = newUser.id
+        await this.userController.one(req, res)
+        .then(result => {
+            if(res.statusCode<400){
+                console.log(result)
+                const trimmedUser = {...result}
+                channel.publish("Accounts", "user.create", Buffer.from(JSON.stringify(trimmedUser)))
+            }
+            res.send(result)
+        })
+        .catch(error =>{
+            res.send(error)
+        })
     }
     // usersUpdate() modifica los datos de una cuenta y retorna el resultado
     async usersUpdate(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        return this.userController.update(req)
+        await this.userController.update(req, res)
+        .then(result => {
+            if(result){
+                console.log(result)
+                const trimmedUser = {...result}
+                channel.publish("Accounts", "user.update", Buffer.from(JSON.stringify(trimmedUser)))
+            }
+            res.send(result)
+        })
+        .catch(error =>{
+            res.send(error)
+        })
     }
     // usersAuthLogin() verifica las credenciales de un usuario y retorna el resultado
     // que puede ser el usuario y su jason web token, o un mensaje de error de verificación
@@ -185,9 +161,13 @@ export class MainController{
         await this.userController.remove(req, res, next)
         .then(result => {
             if(result){
+                console.log(result)
                 channel.publish("Accounts", "user.remove", Buffer.from(JSON.stringify(req.params.id)))
             }
             res.send(result)
+        })
+        .catch(error =>{
+            res.send(error)
         })
     }
 
@@ -195,7 +175,7 @@ export class MainController{
 
     // rolesAll() retorna todos los roles registrados
     async rolesAll(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        return this.roleController.all()
+        return this.roleController.all(req, res)
     }
     // rolesOne() retorna el rol con la id indicada en los parámetros de la uri
     async rolesOne(req: Request, res: Response, next: NextFunction, channel: Channel) {
@@ -207,24 +187,26 @@ export class MainController{
     }
     // rolesUpdate() actualiza los datos del rol y lo retorna
     async rolesUpdate(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        return this.roleController.update(req)
+        return this.roleController.update(req, res)
     }
     // rolesRemoveById() elimina el rol con la id indicada en los parámetros de la URI
     async rolesRemoveById(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        return this.roleController.remove(req.params.roleId)
+        return this.roleController.remove(req, res)
     }
 
     // userHasRole
 
     // userHasRolesAll() retorna todas las relaciones de usuarios con roles
     async userHasRolesAll(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        return this.roleController.all()
+        return this.userHasRoleController.all()
     }
     // userRoles() retorna los roles de un usuario según la id indicada en los parámetros de la uri
     async userRoles(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        const userHasRolesRows =  await this.userHasRoleController.byUser(req.params.userId)
-        console.log(userHasRolesRows)
-        return this.roleController.getAllbyIds(userHasRolesRows)
+        return this.userController.getRoles(req, res)
+    }
+
+    async userRolesUpdate(req: Request, res: Response, next: NextFunction, channel: Channel) {
+        return this.userHasRoleController.updateUserRoles(req, res)
     }
     // userActiveRoles() retorna los roles activos de un usuario según la id indicada en los parámetros de la uri
     async userActiveRoles(req: Request, res: Response, next: NextFunction, channel: Channel) {
@@ -234,13 +216,13 @@ export class MainController{
     // assignRoleByName() asigna a un usuario el rol indicado en la request
     async assignRoleByName(req: Request, res: Response, next: NextFunction, channel: Channel) {
         
-        const userId = req.params.userId
+        const userId = req.params.id
         const roleId = await this.roleController.getIdByName(req.body.roleName)
         return this.userHasRoleController.create(userId, roleId)
     }
     // cancelRoleByName() elimina de un usuario el rol indicado en la request
     async cancelRoleByName(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        const userId = req.params.userId
+        const userId = req.params.id
         const roleId = await this.roleController.getIdByName(req.body.roleName)
         return this.userHasRoleController.cancelRole(userId, roleId)
     }
@@ -251,13 +233,31 @@ export class MainController{
     async storesAll(req: Request, res: Response, next: NextFunction, channel: Channel) {
         return this.storeProfileController.all()
     }
+
+    async storesOne(req: Request, res: Response, next: NextFunction, channel: Channel){
+        return this.storeProfileController.one(req.params.id, res)
+    }
+
+    async storesOneByUserId(req: Request, res: Response, next: NextFunction, channel: Channel){
+        return this.storeProfileController.oneByUserId(req.params.id, res)
+    }
     // storesCreate() crea un nuevo perfil de tienda con los datos provenientes en la request y lo retorna
     async storesCreate(req: Request, res: Response, next: NextFunction, channel: Channel) {
         return this.storeProfileController.create(req.body)   
     }
     // storesUpdate() actualiza los datos del perfil de tienda y lo retorna
     async storesUpdate(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        return this.storeProfileController.update(req)   
+        await this.storeProfileController.update(req, res)
+        .then(result => {
+            if(res.statusCode<400){
+                console.log(result)
+                channel.publish("Accounts", "store.update", Buffer.from(JSON.stringify(result)))
+            }
+            res.send(result)
+        })
+        .catch(error =>{
+            res.send(error)
+        })  
     }
     // storesRemove() elimina el perfil de tienda con la id indicada en los parámetros de la URI
     async storesRemove(req: Request, res: Response, next: NextFunction, channel: Channel){
@@ -270,13 +270,27 @@ export class MainController{
     async expertsAll(req: Request, res: Response, next: NextFunction, channel: Channel) {
         return this.expertProfileController.all()
     }
+
+    async expertsOneByUserId(req: Request, res: Response, next: NextFunction, channel: Channel){
+        return this.expertProfileController.oneByUserId(req.params.id, res)
+    }
     // expertsCreate() crea un nuevo perfil de experto con los datos provenientes en la request y lo retorna
     async expertsCreate(req: Request, res: Response, next: NextFunction, channel: Channel) {
         return this.expertProfileController.create(req.body, res)   
     }
     // expertsUpdate() actualiza los datos del perfil de experto y lo retorna
     async expertsUpdate(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        return this.expertProfileController.update(req, res)   
+        await this.expertProfileController.update(req, res)
+        .then(result => {
+            if(res.statusCode<400){
+                console.log(result)
+                channel.publish("Accounts", "expert.update", Buffer.from(JSON.stringify(result)))
+            }
+            res.send(result)
+        })
+        .catch(error =>{
+            res.send(error)
+        })   
     }
     // expertRemove() elimina el perfil de experto con la id indicada en los parámetros de la URI
     async expertsRemove(req: Request, res: Response, next: NextFunction, channel: Channel){
@@ -299,11 +313,11 @@ export class MainController{
     }
     // permissionsUpdate() actualiza los datos del permiso y lo retorna
     async permissionsUpdate(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        return this.permissionController.update(req)
+        return this.permissionController.update(req, res)
     }
     // permissionsRemoveById() elimina el permiso de experto con la id indicada en los parámetros de la URI
     async permissionsRemoveById(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        return this.permissionController.remove(req.params.roleId)
+        return this.permissionController.remove(req, res)
     }
 
     // Role has permissions
@@ -319,12 +333,8 @@ export class MainController{
         return this.permissionController.getAllbyIds(roleHasPermissionRows)
     }
     // assignPermissionByName() asigna el permiso indicado en la request al rol con la id indicada en los parámetros de la URI
-    async assignPermissionByName(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        
-        const roleId = req.params.roleId
-        const permissionId = await this.permissionController.getIdByName(req.body.permissionName)
-        console.log(roleId, permissionId)
-        return this.roleHasPermissionController.create(roleId, permissionId)
+    async updateRolePermissions(req: Request, res: Response, next: NextFunction, channel: Channel) {
+        return this.roleHasPermissionController.updateRolePermissions(req, res)
     }
     // cancelPermissionByName() elimina el permiso indicado en la request del rol con la id indicada en los parámetros de la URI
     async cancelPermissionByName(req: Request, res: Response, next: NextFunction, channel: Channel) {

@@ -71,25 +71,35 @@ export class PermissionController {
         }
         return "Error: couldn't add new permission"
     }
-    async update(request: any) {
-        const updatedPermission = await this.permissionRepository.update(request.params.id, request.body)
-        if (updatedPermission){
-            return updatedPermission
+    async update(request: Request, response: Response) {
+        const { id } = request.params
+        if (!id){
+            response.status(400)
+            return {message: "Error: id inválida"}
         }
-        return "Error: couldn't update permission"
+        const updatedPermission = await this.permissionRepository.update(id, request.body)
+        if (updatedPermission.affected == 1){
+            return this.permissionRepository.findOne({where: {id:id}})
+        }
+        response.status(500)
+        return {message: "Error al modificar permiso"}
         
     }
 
-    async remove(id: string) {
+    async remove(req: Request, res: Response) {
+        const {id} = req.params
+        if (!id){   
+            res.status(400)
+            return {message: "Error: Id inválida"}
+        }
         let permissionToRemove = await this.permissionRepository.findOneBy({ id: id })
 
         if (!permissionToRemove) {
-            return "this permission doesn't exist"
+            res.status(404)
+            return {message: "Error: Rol no existe"}
         }
 
-        await this.permissionRepository.remove(permissionToRemove)
-
-        return "permission has been removed"
+        return this.permissionRepository.remove(permissionToRemove)
     }
 
 }

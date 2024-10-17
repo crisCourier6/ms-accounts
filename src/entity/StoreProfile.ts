@@ -7,13 +7,13 @@ export class StoreProfile {
     @PrimaryGeneratedColumn("uuid")
     id: string
 
-    @Column()
+    @Column({nullable: true})
     address: string
 
     @Column()
     description: string
 
-    @Column()
+    @Column({nullable: true})
     phone: string
 
     @Column({nullable: true})

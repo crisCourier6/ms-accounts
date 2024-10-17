@@ -22,7 +22,7 @@ export const Routes = [
         action: "usersCreate"
     }, 
     {
-        method: "post",
+        method: "patch",
         route: "/users/:id",
         controller: MainController,
         action: "usersUpdate"
@@ -83,7 +83,7 @@ export const Routes = [
         action: "rolesCreate"
     }, 
     {
-        method: "post",
+        method: "patch",
         route: "/roles/:id",
         controller: MainController,
         action: "rolesUpdate"
@@ -103,7 +103,7 @@ export const Routes = [
     },
     {
         method: "get",
-        route: "/users/:userId/roles/",
+        route: "/users/:id/roles/",
         controller: MainController,
         action: "userRoles"
     },
@@ -115,15 +115,21 @@ export const Routes = [
     },
     {
         method: "post",
-        route: "/users/:userId/roles/",
+        route: "/users/:id/roles/",
         controller: MainController,
         action: "assignRoleByName"
     },
     {
         method: "delete",
-        route: "/users/:userId/roles/",
+        route: "/users/:id/roles/",
         controller: MainController,
         action: "cancelRoleByName"
+    },
+    {
+        method: "patch",
+        route: "/users/:id/roles/",
+        controller: MainController,
+        action: "userRolesUpdate"
     },
     // StoreProfile
     {
@@ -133,14 +139,26 @@ export const Routes = [
         action: "storesAll"
     },
     {
+        method: "get",
+        route: "/stores/byUserId/:id",
+        controller: MainController,
+        action: "storesOneByUserId"
+    },
+    {
+        method: "get",
+        route: "/stores/byId/:id",
+        controller: MainController,
+        action: "storesOne"
+    },
+    {
         method: "post",
         route: "/stores/",
         controller: MainController,
         action: "storesCreate"
     },
     {
-        method: "post",
-        route: "/stores/:id",
+        method: "patch",
+        route: "/stores/byId/:id",
         controller: MainController,
         action: "storesUpdate"
     },
@@ -158,14 +176,20 @@ export const Routes = [
         action: "expertsAll"
     },
     {
+        method: "get",
+        route: "/experts/byUserId/:id",
+        controller: MainController,
+        action: "expertsOneByUserId"
+    },
+    {
         method: "post",
         route: "/experts/",
         controller: MainController,
         action: "expertsCreate"
     },
     {
-        method: "post",
-        route: "/experts/:id",
+        method: "patch",
+        route: "/experts/byId/:id",
         controller: MainController,
         action: "expertsUpdate"
     },
@@ -195,7 +219,7 @@ export const Routes = [
         action: "permissionsCreate"
     }, 
     {
-        method: "post",
+        method: "patch",
         route: "/permissions/:id",
         controller: MainController,
         action: "permissionsUpdate"
@@ -223,7 +247,7 @@ export const Routes = [
         method: "post",
         route: "/roles/:roleId/permissions/",
         controller: MainController,
-        action: "assignPermissionByName"
+        action: "updateRolePermissions"
     },
     {
         method: "delete",

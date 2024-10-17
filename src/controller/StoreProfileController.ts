@@ -7,17 +7,19 @@ export class StoreProfileController {
     private storeProfileRepository = AppDataSource.getRepository(StoreProfile)
 
     async all() {
-        return this.storeProfileRepository.find()
+        return this.storeProfileRepository.find({ relations: ["user"] })
     }
 
-    async one(id: string) {
+    async one(id: string, res: Response) {
   
         const storeProfile = await this.storeProfileRepository.findOne({
-            where: { id: id }
+            where: { id: id },
+            relations: ["user"]
         })
 
         if (!storeProfile) {
-            return "unregistered storeProfile"
+            res.status(404)
+            return {message:"Tienda no encontrada"}
         }
         return storeProfile
     }
@@ -25,7 +27,8 @@ export class StoreProfileController {
     async oneByUserId(id: string, res: Response) {
   
         const storeProfile = await this.storeProfileRepository.findOne({
-            where: { userId: id }
+            where: { userId: id },
+            relations: ["user"]
         })
 
         if (!storeProfile) {
@@ -57,12 +60,18 @@ export class StoreProfileController {
         return this.storeProfileRepository.save(createdStoreProfile)
         
     }
-    async update(request: any) {
+    async update(request: any, response: Response) {
+        const u = request.query.u === "true"
         const updatedProfile = await this.storeProfileRepository.update(request.params.id, request.body)
-        if (updatedProfile){
-            return updatedProfile
+        if (updatedProfile.affected===1){
+            if (u){
+                return this.storeProfileRepository.findOne({where: {id:request.params.id}, relations: ["user"]})
+            }
+            return this.storeProfileRepository.findOne({where: {id:request.params.id}})
+            
         }
-        return "Error: couldn't update user"
+        response.status(500)
+        return {message: "Error al modificar tienda"}
         
     }
 

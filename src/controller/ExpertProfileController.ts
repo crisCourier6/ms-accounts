@@ -10,7 +10,7 @@ export class ExpertProfileController {
     // salidas: ExpertProfile[]
     // retorna todas las filas en la tabla ExpertProfile
     async all() {
-        return this.expertProfileRepository.find()
+        return this.expertProfileRepository.find({ relations: ["user"] })
     }
     // one(id: string)
     // entradas: id: uuid del experto que se quiere encontrar
@@ -19,7 +19,8 @@ export class ExpertProfileController {
     async one(id: string, res: Response) {
   
         const expertProfile = await this.expertProfileRepository.findOne({
-            where: { id: id }
+            where: { id: id },
+            relations: ["user"] 
         })
 
         if (!expertProfile) {
@@ -33,9 +34,13 @@ export class ExpertProfileController {
     // salidas: ExpertProfile
     // recibe la uuid de User del experto y retorna la fila que la contiene. Si la uuid no existe, retorna un mensaje de error
     async oneByUserId(id: string, res: Response) {
-  
+        if (!id){
+            res.status(400)
+            return {message: "Error: id inválida"}
+        }
         const expertProfile = await this.expertProfileRepository.findOne({
-            where: { userId: id }
+            where: { userId: id },
+            relations: ["user"]
         })
 
         if (!expertProfile) {
@@ -79,9 +84,13 @@ export class ExpertProfileController {
     // entradas: req: trae la id del experto que se quiere modificar (req.params.id) y los datos (request.body)
     // salidas: resultado de la modificación. si el campo affected === 1 la modificación fue exitosa
     async update(req: Request, res:Response) {
+        const u = req.query.u === "true"
         const updatedExpert = await this.expertProfileRepository.update(req.params.id, req.body)
-        if (updatedExpert){
-            return updatedExpert
+        if (updatedExpert.affected===1){
+            if (u){
+                return this.expertProfileRepository.findOne({where: {id:req.params.id}, relations: ["user"]})
+            }
+            return this.expertProfileRepository.findOne({where: {id:req.params.id}}) 
         }
         res.status(500)
         return {message: "Error al modificar experto"}
