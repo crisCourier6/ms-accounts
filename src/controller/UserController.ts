@@ -9,7 +9,7 @@ import axios from "axios"
 
 const path = require("path")
 const nodeMailer = require("nodemailer")
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const saltRounds = 10;
 const jwt = require("jsonwebtoken")
 
@@ -366,7 +366,6 @@ export class UserController {
                         res.status(403)
                         return {message: "Cuenta suspendida."}
                     }
-                    
                     const token = jwt.sign(
                         {
                             name: user.name, 
@@ -382,7 +381,6 @@ export class UserController {
                     //     secure: true
                     // })
                     user.lastLogin = new Date
-                    
                     this.userRepository.update(user.id, {lastLogin: user.lastLogin})
                     return {...user, token, lastLogin: user.lastLogin, roles: user.userHasRole?.map((userRole: any) => userRole.role?.name).filter(Boolean).join(",")}
                 }

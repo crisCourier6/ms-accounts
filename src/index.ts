@@ -21,13 +21,13 @@ AppDataSource.initialize().then(async () => {
             channel.assertExchange("Accounts", "topic", {durable: false})
             const app = express()
             app.use(bodyParser.json())
-            var cors = require('cors');  // las opciones cors resolvían un problema con las requests del front, pero creo que ya no son necesarias
-            const corsOptions = {         
-                origin: [process.env.EF_MAIN_LOCAL, process.env.EF_MAIN_REMOTE, process.env.EF_ADMIN_LOCAL, process.env.EF_ADMIN_REMOTE],
-                methods: ['POST', 'GET', 'PATCH', 'DELETE'],
-                allowedHeaders: ['content-type', 'Authorization', "Access-Control-Allow-Origin", "cookies", "set-cookies"]
-            }
-            app.use(cors(corsOptions));
+            // var cors = require('cors');  // las opciones cors resolvían un problema con las requests del front, pero creo que ya no son necesarias
+            // const corsOptions = {         
+            //     origin: [process.env.EF_MAIN_LOCAL, process.env.EF_MAIN_REMOTE, process.env.EF_ADMIN_LOCAL, process.env.EF_ADMIN_REMOTE],
+            //     methods: ['POST', 'GET', 'PATCH', 'DELETE'],
+            //     allowedHeaders: ['content-type', 'Authorization', "Access-Control-Allow-Origin", "cookies", "set-cookies"]
+            // }
+            // app.use(cors(corsOptions));
             const cookieParser = require("cookie-parser") // cookieParser sería utilizado para obtener las cookies de las requests,
             app.use(cookieParser())                     // en específico, la jason web token, que debiera ser httponly,
                                                         // lo cual requiere que las requests vengan de una url https.
