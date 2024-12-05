@@ -10,7 +10,7 @@ import { Channel } from "amqplib"
 import { User } from "../entity/User"
 import axios from "axios"
 import "dotenv/config"
-const jwt = require("jsonwebtoken")
+const validator = require("validator")
 
 export class MainController{
 
@@ -21,6 +21,11 @@ export class MainController{
     private permissionController = new PermissionController
     private roleHasPermissionController = new RoleHasPermissionController
     private expertProfileController = new ExpertProfileController
+
+    async validateToken(req:Request, res:Response, next: NextFunction, channel: Channel) {
+        res.status(200)
+        return {message: "valid"}
+    }
     // users
 
     // usersAll() retorna todos los usuarios registrados
@@ -36,6 +41,15 @@ export class MainController{
     }
     // usersOne() retorna el usuario con la id indicada en los parámetros de la uri
     async usersOne(req: Request, res: Response, next: NextFunction, channel: Channel) {
+        let {id} = req.params
+        if (!id){
+            res.status(400)
+            return {message: "Error: falta parámetro id"}
+        }
+        if (!validator.isUUID(id)){
+            res.status(400)
+            return {message: "Error: formato de id inválido"}
+        }
         return this.userController.one(req, res) 
     }
     // usersOneByEmail() retorna el usuario con el email indicado en los parámetros de la uri
@@ -48,18 +62,15 @@ export class MainController{
         if (res.statusCode === 401 || res.statusCode === 500){
             return newUser
         }
-        console.log("usuario creado")
         const {userRole} = req.body
         let roleToUser = undefined
         let expertProfile = undefined
         let storeProfile = undefined
         if (userRole.includes("Expert")){
-            console.log("voy a agregar experto a usuario")
             expertProfile = await this.expertProfileController.create(req.body, res, newUser)
         }
        
         else if (userRole.includes("Store")){
-            console.log("voy a agregar tienda a usuario")
             storeProfile = await this.storeProfileController.create(req.body, newUser)
         }
         userRole.map(async (roleName) => {

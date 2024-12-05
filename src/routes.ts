@@ -2,6 +2,12 @@
 import { MainController } from "./controller/MainController"
 
 export const Routes = [
+    {
+        method: "get",
+        route: "/validate-token",
+        controller: MainController,
+        action: "validateToken"
+    }, 
     // user routes
     {
         method: "get",

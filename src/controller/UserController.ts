@@ -12,6 +12,7 @@ const nodeMailer = require("nodemailer")
 const bcrypt = require('bcryptjs');
 const saltRounds = 10;
 const jwt = require("jsonwebtoken")
+const validator = require("validator")
 
 export class UserController {
 
@@ -61,6 +62,10 @@ export class UserController {
 
     async one(req:Request, res: Response) {
         const {id} = req.params
+        if (!validator.isUUID(id)){
+            res.status(400)
+            return {message: "Error: formato de id inválido"}
+        }
         const user = await this.userRepository.findOne({
             where: { id: id },
             relations: [
