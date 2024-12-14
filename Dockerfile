@@ -14,7 +14,7 @@ RUN npm install
 COPY . .
 
 # Expose the port your app runs on
-EXPOSE 3000
+EXPOSE 2000
 
 # Command to run your app
 CMD ["npm", "start"]
