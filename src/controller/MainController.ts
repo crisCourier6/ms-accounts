@@ -120,7 +120,7 @@ export class MainController{
                 code: code,
                 client_id: process.env.GOOGLE_CLIENT_ID,
                 client_secret: process.env.GOOGLE_CLIENT_SECRET,
-                redirect_uri: process.env.EF_MAIN_LOCAL,
+                redirect_uri: process.env.EF_MAIN_REMOTE,
                 grant_type: 'authorization_code',
             })
             const { access_token, refresh_token, expires_in } = response.data

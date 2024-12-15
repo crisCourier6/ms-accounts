@@ -21,6 +21,14 @@ export class UserController {
     private userHasRoleController = new UserHasRoleController
 
     async all(req:Request, res: Response) {
+        const authHeader = req.headers.authorization;
+        let excludeUserId = null;
+
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            const token = authHeader.split(" ")[1];
+            const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "your_secret_key");
+            excludeUserId = decoded.id; // Assuming the token contains a payload with 'id'
+        }
         const stores = req.query.s === "true"
         const experts = req.query.e === "true"
         const withRoles = req.query.wr === "true"
@@ -55,6 +63,10 @@ export class UserController {
         else if (experts){
             queryBuilder.leftJoinAndSelect("user.expertProfile", "expertProfile")
                 .where("expertProfile.id IS NOT NULL");
+        }
+
+        if (excludeUserId) {
+            queryBuilder.andWhere("user.id != :excludeUserId", { excludeUserId });
         }
         // Apply filtering based on the flags
         return queryBuilder.getMany();
