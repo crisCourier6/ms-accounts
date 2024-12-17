@@ -178,7 +178,7 @@ export class UserController {
         }
         const activationToken = uuidv4()
         const activationExpire = new Date
-        activationExpire.setMinutes(activationExpire.getMinutes() + 30) 
+        activationExpire.setMinutes(activationExpire.getMinutes() + 15) 
            
         const user = Object.assign(new User(), {
             email: email,
@@ -305,25 +305,29 @@ export class UserController {
 
     async activate(req: Request, res: Response){
         const { id, token } = req.params
+        if (!validator.isUUID(id)) {
+            res.status(400);
+            throw new Error("Error: formato de id inválido");
+        }
         let user = await this.userRepository.findOneBy({ id: id })
         if(!user){
             res.status(404)
-            return {message: "Error: Usuario no existe"}
+            throw new Error("Error: Usuario no existe");
         }
         if (user.isSuspended){
             res.status(403)
-            return {message: "Error: usuario suspendido"}
+            throw new Error("Error: usuario suspendido");
         }
         else if (user.isActive){
             res.status(400)
-            return {message: "Error: usuario ya está activo"}
+            throw new Error("Error: usuario ya está activo");
         }
 
         else if (user.activationToken == token){
             let now = new Date()
             if (user.activationExpire<now){
                 res.status(400)
-                return {message: "Error: enlace expiró"}
+                throw new Error("Error: Enlace ya expiró");
             }
             else{
                 const updatedUser = await this.userRepository.update(id, {isActive: true, isPending: false})
@@ -331,14 +335,108 @@ export class UserController {
                     return this.userRepository.findOne({where: {id}})
                 }
                 res.status(500)
-                return {message: "Error al actualizar usuario"}
+                throw new Error("Error al actualizar usuario");
             }
 
         }
         else{
             res.status(403)
-            return {message: "Error: Token inválida"}
+            throw new Error("Error: Token inválida");
         }
+    }
+
+    async resetActivate(req: Request, res: Response) {
+        const { id } = req.params;
+    
+        if (!validator.isUUID(id)) {
+            res.status(400);
+            throw new Error("Error: formato de id inválido");
+        }
+    
+        const user = await this.userRepository.findOneBy({ id });
+        if (!user) {
+            res.status(404);
+            throw new Error("Error: Usuario no existe");
+        }
+    
+        if (user.isActive || user.isSuspended) {
+            res.status(400);
+            throw new Error("Error: Usuario ya está activo");
+        }
+    
+        const activationToken = uuidv4();
+        const activationExpire = new Date();
+        activationExpire.setMinutes(activationExpire.getMinutes() + 15);
+    
+        const updatedUser = await this.userRepository.update(id, {
+            activationToken,
+            activationExpire,
+        });
+    
+        if (updatedUser.affected === 1) {
+            return this.userRepository.findOne({ where: { id } });
+        }
+    
+        res.status(500);
+        throw new Error("Error al actualizar usuario");
+    }
+
+    async allowResetPassword(req: Request, res: Response){
+        const {email} = req.body
+    
+        const user = await this.userRepository.findOneBy({ email });
+        if (!user) {
+            res.status(404);
+            throw new Error("Error: Usuario no existe");
+        }
+        const activationToken = uuidv4()
+        const activationExpire = new Date
+        activationExpire.setMinutes(activationExpire.getMinutes() + 15) 
+
+        const updatedUser = await this.userRepository.update(user.id, {
+            activationToken,
+            activationExpire,
+        });
+    
+        if (updatedUser.affected === 1) {
+            return this.userRepository.findOne({ where: { id: user.id } });
+        }
+        res.status(500);
+        throw new Error("Error al actualizar usuario");
+
+    }
+
+    async resetPassword(req: Request, res: Response){
+        const {newPass, activationToken} = req.body
+        const {id} = req.params
+        if (!validator.isUUID(id)) {
+            res.status(400);
+            throw new Error("Error: formato de id inválido");
+        }
+    
+        const user = await this.userRepository.findOneBy({ id });
+        if (!user) {
+            res.status(404);
+            throw new Error("Error: Usuario no existe");
+        }
+        if (activationToken !== user.activationToken){
+            res.status(403);
+            throw new Error("Error: Usuario no autorizado");
+        }
+        let now = new Date()
+        if (user.activationExpire<now){
+            res.status(400)
+            throw new Error("Error: Enlace ya expiró");
+        }
+        const salt = await bcrypt.genSalt()
+        const hashedPass = await bcrypt.hash(newPass, salt)
+        const updatedUser = await this.userRepository.update(id, {hash: hashedPass})
+        if(updatedUser.affected===1){
+            return this.userRepository.findOne({where: {id}})
+        }
+        res.status(500)
+        throw new Error("Error al actualizar usuario");
+        
     }
 
     async authUser(req: Request, res: Response){

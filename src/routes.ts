@@ -41,6 +41,18 @@ export const Routes = [
     },
     {
         method: "post",
+        route: "/auth/resetpass",
+        controller: MainController,
+        action: "usersAllowResetPass"
+    },  
+    {
+        method: "post",
+        route: "/auth/resetpass/:id",
+        controller: MainController,
+        action: "usersResetPassword"
+    },  
+    {
+        method: "post",
         route: "/auth/login",
         controller: MainController,
         action: "usersAuthLogIn"
@@ -68,6 +80,12 @@ export const Routes = [
         route: "/activate/:id/:token",
         controller: MainController,
         action: "usersActivate"
+    }, 
+    {
+        method: "get",
+        route: "/activate/:id/:token/reset",
+        controller: MainController,
+        action: "usersResetActivate"
     }, 
     // role routes
     {

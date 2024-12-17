@@ -106,6 +106,34 @@ export class MainController{
             res.send(error)
         })
     }
+    async usersAllowResetPass(req: Request, res: Response, next: NextFunction, channel: Channel) {
+        await this.userController.allowResetPassword(req, res)
+        .then(result => {
+            if(result){
+                console.log(result)
+                const trimmedUser = {...result, lostPass: true}
+                channel.publish("Accounts", "user.update", Buffer.from(JSON.stringify(trimmedUser)))
+            }
+            res.send(result)
+        })
+        .catch(error =>{
+            res.send({ message: error.message });
+        })
+    }
+    async usersResetPassword(req: Request, res: Response, next: NextFunction, channel: Channel) {
+        await this.userController.resetPassword(req, res)
+        .then(result => {
+            if(result){
+                console.log(result)
+                const trimmedUser = {...result}
+                channel.publish("Accounts", "user.update", Buffer.from(JSON.stringify(trimmedUser)))
+            }
+            res.send(result)
+        })
+        .catch(error =>{
+            res.send({ message: error.message });
+        })
+    }
     // usersAuthLogin() verifica las credenciales de un usuario y retorna el resultado
     // que puede ser el usuario y su jason web token, o un mensaje de error de verificación
     async usersAuthLogIn(req: Request, res: Response, next: NextFunction, channel: Channel) {
@@ -164,7 +192,42 @@ export class MainController{
     }
     // usersActivate() cambia el estado de un usuario desactivado a activado
     async usersActivate(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        return this.userController.activate(req, res)
+        await this.userController.activate(req, res)
+        .then((result) => {
+            if (result) {
+                console.log(result);
+                const trimmedUser = { ...result };
+                channel.publish(
+                    "Accounts",
+                    "user.update",
+                    Buffer.from(JSON.stringify(trimmedUser))
+                );
+            }
+            res.send(result); // Success response
+        })
+        .catch((error) => {
+            console.error(error.message); // Log the error
+            res.send({ message: error.message }); // Send error message in response
+        });
+    }
+    async usersResetActivate(req: Request, res: Response, next: NextFunction, channel: Channel){
+        await this.userController.resetActivate(req, res)
+        .then((result) => {
+            if (result) {
+                console.log(result);
+                const trimmedUser = { ...result };
+                channel.publish(
+                    "Accounts",
+                    "user.resetActivate",
+                    Buffer.from(JSON.stringify(trimmedUser))
+                );
+            }
+            res.send(result); // Success response
+        })
+        .catch((error) => {
+            console.error(error.message); // Log the error
+            res.send({ message: error.message }); // Send error message in response
+        });
     }
     // usersRemove() elimina al usuario con la id indicada en los parámetros de la URI y lo retorna. También publica la id
     // en su canal de RabbitMQ para informar a los otros microservicios del suceso
