@@ -38,7 +38,7 @@ export class StoreProfileController {
         return storeProfile
     }
 
-    async create(newStoreProfile: any, user?: any) {
+    async create(newStoreProfile: any, res:Response, user?: any) {
         const { address, description, phone, webPage } = newStoreProfile;
        
            
@@ -55,10 +55,13 @@ export class StoreProfileController {
                 console.log("estoy agregando usuario a tienda")
                 createdStoreProfile.user = user
             }
-            
+            return this.storeProfileRepository.save(createdStoreProfile)
         }
-        return this.storeProfileRepository.save(createdStoreProfile)
         
+        else{
+            res.status(500)
+            return {message: "Error al crear perfil de tienda"}
+        }
     }
     async update(request: any, response: Response) {
         const u = request.query.u === "true"

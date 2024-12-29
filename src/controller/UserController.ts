@@ -34,6 +34,8 @@ export class UserController {
         const withRoles = req.query.wr === "true"
         const withStoreProfile = req.query.ws === "true"
         const withExpertProfile = req.query.we === "true"
+        const pending = req.query.pending === "true";
+        const count = req.query.count === "true";
         
         const queryBuilder = this.userRepository.createQueryBuilder("user")
 
@@ -67,6 +69,15 @@ export class UserController {
 
         if (excludeUserId) {
             queryBuilder.andWhere("user.id != :excludeUserId", { excludeUserId });
+        }
+
+        if (pending) {
+            queryBuilder.andWhere("user.isPending = :isPending", { isPending: true });
+        }
+
+        if (count) {
+            const totalCount = await queryBuilder.getCount();
+            return { count: totalCount }
         }
         // Apply filtering based on the flags
         return queryBuilder.getMany();
@@ -148,6 +159,14 @@ export class UserController {
 
     async create(req: Request, res: Response) {
         const { email, name, pass, profilePic, userRole } = req.body;
+        const authHeader = req.headers.authorization;
+        let submitterRoles = "";
+
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            const token = authHeader.split(" ")[1];
+            const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "your_secret_key");
+            submitterRoles = decoded.roles; // Assuming the token contains a payload with 'id'
+        }
         const oldUser = await this.userRepository.findOneBy({email: email})
         if (oldUser){
             console.log("usuario ya existe")
@@ -156,6 +175,19 @@ export class UserController {
         }
         const salt = await bcrypt.genSalt()
         const hashedPass = await bcrypt.hash(pass, salt)
+
+        if (submitterRoles.includes("Admin") || submitterRoles.includes("Tech")){
+            const user = Object.assign(new User(), {
+                email: email,
+                name: name,
+                hash: hashedPass,
+                profilePic: profilePic,
+                isPending: false,
+                isActive: true
+            })
+            return this.userRepository.save(user)
+        }
+
         if (userRole.includes("Expert") || userRole.includes("Store")){
             const user = Object.assign(new User(), {
                 email: email,
@@ -266,7 +298,7 @@ export class UserController {
                 return {message: "Error: Contraseña inválida"}
             }
         }
-        let newUser = {...req.body}
+        let {reason, ...newUser} = req.body
         const updatedUser = await this.userRepository.update(id, newUser)
         if (updatedUser.affected === 1){
             return this.userRepository.findOne({

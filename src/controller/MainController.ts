@@ -30,6 +30,10 @@ export class MainController{
 
     // usersAll() retorna todos los usuarios registrados
     async usersAll(req: Request, res: Response, next: NextFunction, channel: Channel) {
+        const count = req.query.count === "true";
+        if (count){
+            return this.userController.all(req, res)
+        }
         let users = await this.userController.all(req, res) as User[]
         users = users.filter(user => user !== null)
         //cuando se quiera llenar tablas en otros microservicios
@@ -71,7 +75,7 @@ export class MainController{
         }
        
         else if (userRole.includes("Store")){
-            storeProfile = await this.storeProfileController.create(req.body, newUser)
+            storeProfile = await this.storeProfileController.create(req.body, res, newUser)
         }
         userRole.map(async (roleName) => {
             const role = await this.roleController.oneByName(roleName)
@@ -81,8 +85,8 @@ export class MainController{
         await this.userController.one(req, res)
         .then(result => {
             if(res.statusCode<400){
-                console.log(result)
                 const trimmedUser = {...result}
+                console.log(trimmedUser)
                 channel.publish("Accounts", "user.create", Buffer.from(JSON.stringify(trimmedUser)))
             }
             res.send(result)
@@ -96,10 +100,16 @@ export class MainController{
         await this.userController.update(req, res)
         .then(result => {
             if(result){
-                console.log(result)
                 const trimmedUser = {...result}
+                console.log(trimmedUser)
                 channel.publish("Accounts", "user.update", Buffer.from(JSON.stringify(trimmedUser)))
+                if(req.body.reason){
+                    let message = `Tu cuenta fue desactivada por la siguiente razón: ${req.body.reason}`
+                    const info = {id:req.params.id, message}
+                    channel.publish("Accounts", "user.notify", Buffer.from(JSON.stringify(info)))
+                }
             }
+            console.log(result)
             res.send(result)
         })
         .catch(error =>{
@@ -317,7 +327,7 @@ export class MainController{
     }
     // storesCreate() crea un nuevo perfil de tienda con los datos provenientes en la request y lo retorna
     async storesCreate(req: Request, res: Response, next: NextFunction, channel: Channel) {
-        return this.storeProfileController.create(req.body)   
+        return this.storeProfileController.create(req.body, res)   
     }
     // storesUpdate() actualiza los datos del perfil de tienda y lo retorna
     async storesUpdate(req: Request, res: Response, next: NextFunction, channel: Channel) {
