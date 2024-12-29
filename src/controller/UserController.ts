@@ -23,7 +23,6 @@ export class UserController {
     async all(req:Request, res: Response) {
         const authHeader = req.headers.authorization;
         let excludeUserId = null;
-
         if (authHeader && authHeader.startsWith("Bearer ")) {
             const token = authHeader.split(" ")[1];
             const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "your_secret_key");
@@ -474,7 +473,6 @@ export class UserController {
     async authUser(req: Request, res: Response){
         const { email, pass } = req.body
         const role= req.query.r
-        console.log(role)
         if (!role) {
             res.status(400)
             return { message: 'Parámetro inválido.' }
@@ -499,7 +497,6 @@ export class UserController {
             return {message: "Error: email no encontrado"}
         }
         const userRoles = user.userHasRole?.map((userRole: any) => userRole.role?.name).filter(Boolean)
-        console.log(userRoles)
         if (!userRoles.includes(role)){
             res.status(403)
             return {message: "Error: Usuario no autorizado"}
