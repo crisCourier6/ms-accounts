@@ -77,10 +77,12 @@ export class MainController{
         else if (userRole.includes("Store")){
             storeProfile = await this.storeProfileController.create(req.body, res, newUser)
         }
-        userRole.map(async (roleName) => {
-            const role = await this.roleController.oneByName(roleName)
-            roleToUser = await this.userHasRoleController.create(newUser, role)
-        })
+        await Promise.all(
+            userRole.map(async (roleName) => {
+                const role = await this.roleController.oneByName(roleName);
+                await this.userHasRoleController.create(newUser, role);
+            })
+        );
         req.params.id = newUser.id
         await this.userController.one(req, res)
         .then(result => {
