@@ -3,7 +3,7 @@ import { NextFunction, Request, Response } from "express"
 import { User } from "../entity/User"
 import { UserHasRoleController } from "./UserHasRoleController";
 import { RoleController } from "./RoleController";
-import { v4 as uuidv4, v6 as uuidv6 } from 'uuid';
+import { v4 as uuidv4 } from 'uuid';
 import "dotenv/config"
 import axios from "axios"
 
@@ -16,9 +16,9 @@ const validator = require("validator")
 
 export class UserController {
 
-    private userRepository = AppDataSource.getRepository(User)
-    private roleController = new RoleController
-    private userHasRoleController = new UserHasRoleController
+    private readonly userRepository = AppDataSource.getRepository(User)
+    private readonly roleController = new RoleController
+    private readonly userHasRoleController = new UserHasRoleController
 
     async all(req:Request, res: Response) {
         const authHeader = req.headers.authorization;
@@ -129,7 +129,7 @@ export class UserController {
         return user
     }
 
-    async sendMail(email: string, subject: String, content: any){
+    async sendMail(email: string, subject: string, content: any){
         const transporter = nodeMailer.createTransport({
             service: "gmail",
             port: 456,
@@ -271,7 +271,7 @@ export class UserController {
         let newUser = await this.userRepository.save(user)
         data.userRole.map(async (roleName) => {
             const role = await this.roleController.oneByName(roleName)
-            let roleToUser = await this.userHasRoleController.create(newUser, role)
+            await this.userHasRoleController.create(newUser, role)
         })
         return newUser
     }

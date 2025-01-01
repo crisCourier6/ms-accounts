@@ -14,13 +14,13 @@ const validator = require("validator")
 
 export class MainController{
 
-    private userController = new UserController
-    private roleController = new RoleController
-    private userHasRoleController = new UserHasRoleController
-    private storeProfileController = new StoreProfileController
-    private permissionController = new PermissionController
-    private roleHasPermissionController = new RoleHasPermissionController
-    private expertProfileController = new ExpertProfileController
+    private readonly userController = new UserController
+    private readonly roleController = new RoleController
+    private readonly userHasRoleController = new UserHasRoleController
+    private readonly storeProfileController = new StoreProfileController
+    private readonly permissionController = new PermissionController
+    private readonly roleHasPermissionController = new RoleHasPermissionController
+    private readonly expertProfileController = new ExpertProfileController
 
     async validateToken(req:Request, res:Response, next: NextFunction, channel: Channel) {
         res.status(200)
@@ -67,7 +67,6 @@ export class MainController{
             return newUser
         }
         const {userRole} = req.body
-        let roleToUser = undefined
         let expertProfile = undefined
         let storeProfile = undefined
         if (userRole.includes("Expert")){

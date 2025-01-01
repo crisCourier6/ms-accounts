@@ -1,4 +1,4 @@
-import { Entity, ManyToOne, PrimaryColumn, Column, Unique, ManyToMany, JoinColumn } from "typeorm"
+import { Entity, ManyToOne, PrimaryColumn, Unique, JoinColumn } from "typeorm"
 import { Permission } from "./Permission"
 import { Role } from "./Role"
 

@@ -1,11 +1,11 @@
 import { AppDataSource } from "../data-source"
-import { NextFunction, Request, Response } from "express"
+import { Request, Response } from "express"
 import { Role } from "../entity/Role"
 import { In } from "typeorm"
 
 export class RoleController {
 
-    private roleRepository = AppDataSource.getRepository(Role)
+    private readonly roleRepository = AppDataSource.getRepository(Role)
 
     async all(req:Request, res:Response) {
         const withPermissions = req.query.wp === "true"

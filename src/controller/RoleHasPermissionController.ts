@@ -1,13 +1,13 @@
 import { AppDataSource } from "../data-source"
-import { NextFunction, Request, Response } from "express"
+import { Request, Response } from "express"
 import { RoleHasPermission } from "../entity/RoleHasPermission"
 import { Role } from "../entity/Role"
 import { Permission } from "../entity/Permission"
 
 export class RoleHasPermissionController {
 
-    private roleHasPermissionRepository = AppDataSource.getRepository(RoleHasPermission)
-    private roleRepository = AppDataSource.getRepository(Role)
+    private readonly roleHasPermissionRepository = AppDataSource.getRepository(RoleHasPermission)
+    private readonly roleRepository = AppDataSource.getRepository(Role)
     private permissionRepository = AppDataSource.getRepository(Permission)
 
     async all() {

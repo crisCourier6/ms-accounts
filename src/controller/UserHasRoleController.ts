@@ -1,13 +1,13 @@
 import { AppDataSource } from "../data-source"
-import { NextFunction, Request, Response } from "express"
+import { Request, Response } from "express"
 import { UserHasRole } from "../entity/UserHasRole"
 import { Role } from "../entity/Role"
 import { User } from "../entity/User"
 
 export class UserHasRoleController {
 
-    private userHasRoleRepository = AppDataSource.getRepository(UserHasRole)
-    private userRepository = AppDataSource.getRepository(User)
+    private readonly userHasRoleRepository = AppDataSource.getRepository(UserHasRole)
+    private readonly userRepository = AppDataSource.getRepository(User)
 
     async all() {
         return this.userHasRoleRepository.find()

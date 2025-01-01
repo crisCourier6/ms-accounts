@@ -1,11 +1,11 @@
 import { AppDataSource } from "../data-source"
-import { NextFunction, Request, Response } from "express"
+import { Request, Response } from "express"
 import { Permission } from "../entity/Permission"
 import { In } from "typeorm"
 
 export class PermissionController {
 
-    private permissionRepository = AppDataSource.getRepository(Permission)
+    private readonly permissionRepository = AppDataSource.getRepository(Permission)
 
     async all() {
         return this.permissionRepository.find()

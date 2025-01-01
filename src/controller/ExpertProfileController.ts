@@ -1,10 +1,10 @@
 import { AppDataSource } from "../data-source"
-import { NextFunction, Request, Response } from "express"
+import { Request, Response } from "express"
 import { ExpertProfile } from "../entity/ExpertProfile"
 
 export class ExpertProfileController {
 
-    private expertProfileRepository = AppDataSource.getRepository(ExpertProfile)
+    private readonly expertProfileRepository = AppDataSource.getRepository(ExpertProfile)
     // all()
     // entradas: -
     // salidas: ExpertProfile[]

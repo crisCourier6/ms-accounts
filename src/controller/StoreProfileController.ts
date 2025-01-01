@@ -4,7 +4,7 @@ import { StoreProfile } from "../entity/StoreProfile";
 
 export class StoreProfileController {
 
-    private storeProfileRepository = AppDataSource.getRepository(StoreProfile)
+    private readonly storeProfileRepository = AppDataSource.getRepository(StoreProfile)
 
     async all() {
         return this.storeProfileRepository.find({ relations: ["user"] })
